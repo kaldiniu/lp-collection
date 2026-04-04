@@ -1,0 +1,68 @@
+{
+  "items": [
+    {
+      "id": "lp-osc-cd-au-093624496328",
+      "title": "One Step Closer",
+      "type": "single",
+      "year": 2000,
+      "format": "CD",
+      "packaging": "J-Card Case",
+      "era": "Hybrid Theory",
+      "country": "Australia",
+      "catalog": "9362449632",
+      "ean": "093624496328",
+      "owned": true,
+      "images": [],
+      "tracklist": [],
+      "notes": ""
+    },
+    {
+      "id": "lp-osc-cd-gb-093624496328",
+      "title": "One Step Closer",
+      "type": "single",
+      "year": 2000,
+      "format": "CD",
+      "packaging": "J-Card Case",
+      "era": "Hybrid Theory",
+      "country": "United Kingdom",
+      "catalog": "W550CD",
+      "ean": "093624496328",
+      "owned": true,
+      "images": [],
+      "tracklist": [],
+      "notes": ""
+    },
+    {
+      "id": "lp-osc-cd-ge-093624496328",
+      "title": "One Step Closer",
+      "type": "single",
+      "year": 2000,
+      "format": "CD",
+      "packaging": "J-Card Case",
+      "era": "Hybrid Theory",
+      "country": "Germany",
+      "catalog": "9362-44963-2",
+      "ean": "093624496328",
+      "owned": true,
+      "images": [],
+      "tracklist": [],
+      "notes": ""
+    },
+    {
+      "id": "lp-osc-cd-ge-054391677723",
+      "title": "One Step Closer",
+      "type": "single",
+      "year": 2000,
+      "format": "CD",
+      "packaging": "Cardsleeve",
+      "era": "Hybrid Theory",
+      "country": "Germany",
+      "catalog": "5439-16777-2",
+      "ean": "054391677723",
+      "owned": true,
+      "images": [],
+      "tracklist": [],
+      "notes": ""
+    }
+  ]
+}

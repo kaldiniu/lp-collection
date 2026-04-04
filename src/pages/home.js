@@ -1,3 +1,5 @@
+//src/pages/home.js
+//
 export function renderHome() {
   const app = document.querySelector("#app");
   app.innerHTML = `

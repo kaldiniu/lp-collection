@@ -1,3 +1,5 @@
+//src/pages/notFound.js
+// 
 export function renderNotFound(route) {
   const app = document.querySelector("#app");
   app.innerHTML = `
