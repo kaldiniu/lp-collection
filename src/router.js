@@ -31,3 +31,7 @@ async function renderRoute() {
     renderNotFound(route);
   }
 }
+
+export async function rerender() {
+  await renderRoute();
+}
