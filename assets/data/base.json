@@ -61,7 +61,10 @@
       "ean": "054391677723",
       "owned": true,
       "images": [],
-      "tracklist": [],
+      "tracklist": [
+        { "title": "One Step Closer", "duration": "02:39" },
+        { "title": "My December", "duration": "04:21" }
+      ],
       "notes": ""
     },
     {
@@ -544,7 +547,14 @@
       "ean": "",
       "owned": true,
       "images": [],
-      "tracklist": [],
+      "tracklist": [
+        { "title": "Carousel" },
+        { "title": "Technique (Short)" },
+        { "title": "And One" },
+        { "title": "Step Up" },
+        { "title": "High Voltage" },
+        { "title": "Part Of Me" }
+      ],
       "notes": "Hybrid Theory EP"
     },
     {

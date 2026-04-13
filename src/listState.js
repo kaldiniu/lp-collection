@@ -7,7 +7,7 @@ const DEFAULT_STATE = {
   filters: { format: "all", owned: "all" },  // owned: all | true | false (строками)
   sort: { field: "title", dir: "asc" },      // field: title|country|year|owned
   page: 1,
-  pageSize: 16
+  pageSize: 32
 };
 
 export function loadListState(type) {
@@ -42,7 +42,7 @@ export function resetListState(type) {
 export function isDefaultState(state) {
   return (
     (state.search ?? "") === DEFAULT_STATE.search &&
-    (state.page ?? 1) === DEFAULT_STATE.page &&
+    (state.page ?? DEFAULT_STATE.page) === DEFAULT_STATE.page &&
     (state.pageSize ?? DEFAULT_STATE.pageSize) === DEFAULT_STATE.pageSize &&
     (state.filters?.format ?? DEFAULT_STATE.filters.format) === DEFAULT_STATE.filters.format &&
     (state.filters?.owned ?? DEFAULT_STATE.filters.owned) === DEFAULT_STATE.filters.owned &&

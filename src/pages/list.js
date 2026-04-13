@@ -4,6 +4,7 @@ import { loadBaseData } from "../data.js";
 import { getPrefs } from "../prefs.js";
 import { selectItems } from "../selectors.js";
 import { loadListState, saveListState, resetListState, isDefaultState } from "../listState.js";
+import { openModal } from "../ui/modal.js";
 
 let cache = {
   loaded: false,
@@ -34,6 +35,22 @@ export async function renderList(type) {
 
   // 3) Обновляем содержимое (count + list) без перерисовки toolbar
   updateContent(type);
+}
+
+function bindOpenRelease() {
+  const content = document.querySelector("#content");
+  if (!content) return;
+
+  content.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-open]");
+    if (!el) return;
+
+    const id = el.dataset.open;
+    const item = cache.all.find(x => x.id === id);
+    if (!item) return;
+
+    openModal(renderRelease(item));
+  });
 }
 
 function ensureLayout(app, type) {
@@ -69,6 +86,7 @@ function ensureLayout(app, type) {
   `;
 
   bindToolbar(type);
+  bindOpenRelease();
 }
 
 function updateContent(type) {
@@ -214,7 +232,7 @@ function bindToolbar(type) {
 
   pageSizeSel?.addEventListener("change", () => {
     const st = read();
-    st.pageSize = Number(pageSizeSel.value) || 16;
+    st.pageSize = Number(pageSizeSel.value) || 32;
     st.page = 1;
     write(st);
     apply();
@@ -260,7 +278,7 @@ function renderGrid(items) {
   return `
     <div class="grid">
       ${items.map(x => `
-        <article class="card">
+        <article class="card" data-open="${escapeHtml(x.id)}">
           <div class="card__title">${escapeHtml(x.title)}</div>
           <div class="card__meta">
             ${escapeHtml(String(x.year ?? "—"))}
@@ -288,7 +306,7 @@ function renderTable(items) {
         </thead>
         <tbody>
           ${items.map(x => `
-            <tr>
+            <tr data-open="${escapeHtml(x.id)}">
               <td>${escapeHtml(x.title)}</td>
               <td>${escapeHtml(String(x.year ?? "—"))}</td>
               <td>${escapeHtml(x.format ?? "—")}</td>
@@ -346,6 +364,54 @@ function bindPager(type, page, pages) {
       document.querySelector("#page-title")?.scrollIntoView({ block: "start" });
     });
   });
+}
+
+function renderRelease(item) {
+  const tracks = Array.isArray(item.tracklist) ? item.tracklist : [];
+  const images = Array.isArray(item.images) ? item.images : [];
+
+  return `
+    <h2>${escapeHtml(item.title)}</h2>
+
+    <div class="kv">
+      ${kv("Type", item.type)}
+      ${kv("Year", item.year)}
+      ${kv("Format", item.format)}
+      ${kv("Packaging", item.packaging)}
+      ${kv("Era", item.era)}
+      ${kv("Country", item.country)}
+      ${kv("Catalog", item.catalog)}
+      ${kv("EAN", item.ean)}
+      ${kv("Owned", item.owned ? "Yes" : "No")}
+    </div>
+
+    ${images.length ? `
+      <h3>Images</h3>
+      <img class="release-img" src="${escapeHtml(images[0])}" alt="">
+    ` : ""}
+
+    ${tracks.length ? `
+      <h3>Tracklist</h3>
+      <ol class="tracklist">
+        ${tracks.map(t => `
+          <li>
+            <span>${escapeHtml(t.title ?? "")}</span>
+            <span class="muted">${escapeHtml(t.duration ? t.duration : "—")}</span>
+          </li>
+        `).join("")}
+      </ol>
+    ` : `<p class="muted">Tracklist: —</p>`}
+
+    ${item.notes ? `
+      <h3>Notes</h3>
+      <p>${escapeHtml(item.notes)}</p>
+    ` : ""}
+  `;
+}
+
+function kv(k, v) {
+  if (v == null || v === "") return "";
+  return `<div class="kv__row"><span class="muted">${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`;
 }
 
 function escapeHtml(s) {
