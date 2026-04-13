@@ -141,6 +141,15 @@ function renderToolbar(state, formats) {
       </label>
 
       <label class="field">
+        <span class="field__label">Per page</span>
+        <select class="select" id="page-size">
+          ${[16, 32, 64, 128].map(n => `
+            <option value="${n}" ${Number(state.pageSize) === n ? "selected" : ""}>${n}</option>
+          `).join("")}
+        </select>
+      </label>
+
+      <label class="field">
         <span class="field__label">Sort</span>
         <select class="select" id="s-field">
           ${["title","country","year","owned"].map(f =>
@@ -163,6 +172,7 @@ function bindToolbar(type) {
   const q = document.querySelector("#q");
   const fFormat = document.querySelector("#f-format");
   const fOwned = document.querySelector("#f-owned");
+  const pageSizeSel = document.querySelector("#page-size");
   const sField = document.querySelector("#s-field");
   const sDir = document.querySelector("#s-dir");
   const btnReset = document.querySelector("#btn-reset");
@@ -202,6 +212,14 @@ function bindToolbar(type) {
     apply();
   });
 
+  pageSizeSel?.addEventListener("change", () => {
+    const st = read();
+    st.pageSize = Number(pageSizeSel.value) || 16;
+    st.page = 1;
+    write(st);
+    apply();
+  });
+
   sField?.addEventListener("change", () => {
     const st = read();
     st.sort.field = sField.value;
@@ -231,6 +249,7 @@ function bindToolbar(type) {
     fOwned.value = st.filters.owned;
     sField.value = st.sort.field;
     sDir.textContent = st.sort.dir === "asc" ? "↑" : "↓";
+    pageSizeSel.value = String(st.pageSize);
     apply();
   });
 }

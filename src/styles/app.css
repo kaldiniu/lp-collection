@@ -65,7 +65,7 @@ body { background: var(--bg); color: var(--fg); }
 
 @media (min-width: 720px) {
   .toolbar {
-    grid-template-columns: 1.4fr 1fr 1fr 1fr auto auto;
+    grid-template-columns: 1.4fr 1fr 1fr auto 1fr auto auto;
     align-items: end;
   }
 }
