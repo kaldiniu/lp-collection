@@ -8,6 +8,7 @@ const KEYS = {
 const DEFAULTS = {
   theme: "dark", // "light" | "dark"
   view: "grid",  // "grid" | "table"
+  pageSize: 12
 };
 
 export function getPrefs() {

@@ -55,3 +55,28 @@ body { background: var(--bg); color: var(--fg); }
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 14px; }
 .table { width: 100%; border-collapse: collapse; background: var(--card); }
 .table th, .table td { padding: 10px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; }
+
+.toolbar {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+  margin: 10px 0 14px;
+}
+
+@media (min-width: 720px) {
+  .toolbar {
+    grid-template-columns: 1.4fr 1fr 1fr 1fr auto auto;
+    align-items: end;
+  }
+}
+
+.field__label { display:block; font-size:12px; color: var(--muted); margin-bottom:4px; }
+.input, .select {
+  width:100%; padding:10px 12px; border-radius:12px;
+  border:1px solid var(--border); background: var(--card); color: var(--fg);
+}
+
+.btn--disabled { opacity: .5; cursor: not-allowed; }
+
+.pager { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 14px 0 4px; flex-wrap: wrap; }
+.pager__info { color: var(--muted); font-size: 13px; }
