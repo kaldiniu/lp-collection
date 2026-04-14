@@ -88,3 +88,36 @@ function loadOverlay() {
 function saveOverlay() {
   localStorage.setItem(LS_KEY, JSON.stringify(overlay));
 }
+
+export function exportData() {
+  return {
+    meta: {
+      app: "lp-collection",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+    },
+    items: getAll(),
+  };
+}
+
+export function importData(payload, { mode = "merge" } = {}) {
+  if (!isAuthed()) throw new Error("Not authorized");
+  if (!payload || !Array.isArray(payload.items)) throw new Error("Invalid file");
+
+  const incoming = payload.items;
+
+  if (mode === "replace") {
+    // optional: полная замена overlay
+    overlay = { itemsById: {}, deleted: {} };
+  }
+
+  // ✅ MERGE (overwrite): импортируемый объект полностью заменяет существующий
+  for (const it of incoming) {
+    if (!it || !it.id) continue;
+
+    overlay.itemsById[it.id] = it;     // overwrite целиком
+    delete overlay.deleted[it.id];     // если было удалено — вернуть
+  }
+
+  saveOverlay();
+}

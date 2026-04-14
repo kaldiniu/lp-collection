@@ -16,9 +16,10 @@ import { openModal } from "../ui/modal.js";
 import { resolveImage, initLazyImages, getPlaceholder } from "../ui/images.js";
 
 import { isAuthed } from "../services/auth.js";
-import { initStore, getAll, addRelease, updateRelease, deleteRelease } from "../store.js";
+import { initStore, getAll, addRelease, updateRelease, deleteRelease, exportData, importData } from "../store.js";
 import { renderAddReleaseForm, readAddReleaseForm } from "../ui/addReleaseForm.js";
 import { renderEditReleaseForm, readEditReleaseForm } from "../ui/editReleaseForm.js";
+import { downloadJson, pickJsonFile } from "../ui/backup.js";
 
 // -------------------- cache --------------------
 let cache = {
@@ -197,6 +198,11 @@ function renderToolbar(state, formats) {
       </button>
 
       ${isAuthed() ? `<button class="btn btn--accent" id="btn-add" type="button">Add</button>` : ""}
+
+      ${isAuthed() ? `
+        <button class="btn" id="btn-export" type="button">Export</button>
+        <button class="btn" id="btn-import" type="button">Import</button>
+      ` : ""}
     </div>
   `;
 }
@@ -217,6 +223,43 @@ function bindToolbar(type) {
   const read = () => loadListState(type);
   const write = (st) => saveListState(type, st);
   const apply = () => updateContent(type);
+
+  const btnExport = root.querySelector("#btn-export");
+  const btnImport = root.querySelector("#btn-import");
+
+  btnExport?.addEventListener("click", () => {
+    if (!isAuthed()) return;
+
+    const data = exportData();
+    downloadJson("lp-collection-export.json", data);
+  });
+
+  btnImport?.addEventListener("click", async () => {
+    if (!isAuthed()) return;
+
+    const ok = confirm(
+      "Import will MERGE and OVERWRITE existing releases with the same ID.\n" +
+      "Deleted releases may also be restored if present in the file.\n\n" +
+      "Continue?"
+    );
+    if (!ok) return;
+
+    try {
+      const json = await pickJsonFile();
+
+      // merge overwrite
+      importData(json, { mode: "merge" });
+
+      // refresh in-memory data and UI
+      cache.all = getAll();
+      updateFormatsCache();
+      updateContent(type);
+
+      alert("Import complete (merge overwrite).");
+    } catch (err) {
+      alert(`Import failed: ${err.message}`);
+    }
+  });
 
   q?.addEventListener("input", () => {
     const st = read();
