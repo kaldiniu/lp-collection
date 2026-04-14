@@ -2,6 +2,7 @@
 // 
 import { startRouter, rerender } from "./router.js";
 import { getPrefs, setTheme, setView, applyTheme } from "./prefs.js";
+import { isAuthed, login, logout } from "./services/auth.js";
 
 function initUI() {
   const btnTheme = document.querySelector("#btn-theme");
@@ -35,6 +36,24 @@ function initUI() {
   });
 }
 
-initUI();
-startRouter();
-``
+function initAuthButton() {
+  const btn = document.querySelector("#btn-auth");
+  if (!btn) return;
+
+  const paint = () => btn.textContent = isAuthed() ? "Logout" : "Login";
+  paint();
+
+  btn.addEventListener("click", async () => {
+    if (isAuthed()) logout();
+    else login();
+
+    paint();
+    await rerender(); // чтобы UI перерисовался и показал/скрыл admin-кнопки
+  });
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  initUI();
+  initAuthButton();
+  startRouter();
+});
