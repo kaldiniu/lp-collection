@@ -16,9 +16,19 @@ export function makeId({ title, format, country, ean, catalog, year }) {
   const t = slug(title);
   const f = slug(format);
   const cc = countryCode(country);
-  const tail = String(ean || catalog || year || "").trim();
-  const tailSlug = slug(tail);
-  return `lp-${t}-${f}-${cc}-${tailSlug}`.replace(/-+/g, "-");
+
+  const tailRaw = String(ean || catalog || year || "").trim();
+
+  // ✅ если нет хвоста — генерим уникальный (разрешено по твоему требованию)
+  const tail = tailRaw ? slug(tailRaw) : autoTail();
+
+  return `lp-${t}-${f}-${cc}-${tail}`.replace(/-+/g, "-");
+}
+
+function autoTail() {
+  const a = Date.now().toString(36);
+  const b = Math.random().toString(36).slice(2, 7);
+  return `${a}-${b}`;
 }
 
 function slug(s) {

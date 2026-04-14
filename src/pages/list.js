@@ -1,6 +1,8 @@
 // src/pages/list.js
 //
-import { loadBaseData } from "../data.js";
+// List page with: filters/search/sort, pagination, images (lazy + placeholder),
+// release details modal + gallery (6C), and CRUD (step 7) guarded by login.
+
 import { getPrefs } from "../prefs.js";
 import { selectItems } from "../selectors.js";
 import {
@@ -9,8 +11,14 @@ import {
   resetListState,
   isDefaultState,
 } from "../listState.js";
+
 import { openModal } from "../ui/modal.js";
 import { resolveImage, initLazyImages, getPlaceholder } from "../ui/images.js";
+
+import { isAuthed } from "../services/auth.js";
+import { initStore, getAll, addRelease, updateRelease, deleteRelease } from "../store.js";
+import { renderAddReleaseForm, readAddReleaseForm } from "../ui/addReleaseForm.js";
+import { renderEditReleaseForm, readEditReleaseForm } from "../ui/editReleaseForm.js";
 
 // -------------------- cache --------------------
 let cache = {
@@ -23,21 +31,13 @@ let cache = {
 export async function renderList(type) {
   const app = document.querySelector("#app");
 
-  // 1) Load data once
+  // 1) Load data once (through store overlay)
   if (!cache.loaded) {
     app.innerHTML = "<p>Loading...</p>";
-    const data = await loadBaseData();
-    cache.all = data.items ?? [];
+    await initStore();
+    cache.all = getAll();
     cache.loaded = true;
-
-    // Pre-calc formats per type
-    for (const t of ["single", "album", "lpu", "other"]) {
-      const typeItems = cache.all.filter((x) => x.type === t);
-      const formats = Array.from(
-        new Set(typeItems.map((x) => x.format).filter(Boolean))
-      ).sort();
-      cache.formatsByType.set(t, formats);
-    }
+    updateFormatsCache();
   }
 
   // 2) Ensure layout exists for this type
@@ -50,9 +50,16 @@ export async function renderList(type) {
 // -------------------- layout --------------------
 function ensureLayout(app, type) {
   const root = app.querySelector('[data-list-layout="1"]');
+  const authNow = isAuthed() ? "1" : "0";
 
   // If layout exists but for another type — rebuild
   if (root && root.dataset.type !== type) {
+    app.innerHTML = "";
+    return ensureLayout(app, type);
+  }
+
+  // ✅ NEW: If layout exists but auth changed — rebuild (to show/hide Add/Edit/Delete)
+  if (root && root.dataset.auth !== authNow) {
     app.innerHTML = "";
     return ensureLayout(app, type);
   }
@@ -68,7 +75,7 @@ function ensureLayout(app, type) {
   const formats = cache.formatsByType.get(type) ?? [];
 
   app.innerHTML = `
-    <div data-list-layout="1" data-type="${type}">
+    <div data-list-layout="1" data-type="${type}" data-auth="${authNow}">
       <h1 id="page-title">${escapeHtml(type.toUpperCase())}</h1>
 
       ${renderToolbar(state, formats)}
@@ -82,7 +89,7 @@ function ensureLayout(app, type) {
   `;
 
   bindToolbar(type);
-  bindOpenRelease();
+  bindOpenRelease(type);
 }
 
 // -------------------- content update --------------------
@@ -188,6 +195,8 @@ function renderToolbar(state, formats) {
         type="button" ${resetDisabled ? "disabled" : ""}>
         Reset
       </button>
+
+      ${isAuthed() ? `<button class="btn btn--accent" id="btn-add" type="button">Add</button>` : ""}
     </div>
   `;
 }
@@ -201,6 +210,7 @@ function bindToolbar(type) {
   const sDir = root.querySelector("#s-dir");
   const btnReset = root.querySelector("#btn-reset");
   const pageSizeSel = root.querySelector("#page-size");
+  const btnAdd = root.querySelector("#btn-add"); // может не существовать (если не authed)
 
   let t = null; // debounce timer
 
@@ -261,7 +271,6 @@ function bindToolbar(type) {
   btnReset?.addEventListener("click", () => {
     const st = resetListState(type);
 
-    // reset UI values (toolbar persists)
     q.value = st.search;
     fFormat.value = st.filters.format;
     fOwned.value = st.filters.owned;
@@ -271,6 +280,42 @@ function bindToolbar(type) {
 
     apply();
     root.querySelector("#page-title")?.scrollIntoView({ block: "start" });
+  });
+
+  // --------- ADD (admin only) ----------
+  btnAdd?.addEventListener("click", () => {
+    if (!isAuthed()) return; // guard
+
+    openModal(renderAddReleaseForm(type));
+
+    const form = document.querySelector("#add-release-form");
+    form?.addEventListener(
+      "submit",
+      (e) => {
+        e.preventDefault();
+        if (!isAuthed()) return;
+
+        try {
+          const item = readAddReleaseForm(form, type);
+          addRelease(item);
+
+          // refresh in-memory data
+          cache.all = getAll();
+          updateFormatsCache();
+
+          // ensure new item visible
+          const st = loadListState(type);
+          st.page = 1;
+          saveListState(type, st);
+
+          updateContent(type);
+          closeModalFallback();
+        } catch (err) {
+          alert(err.message);
+        }
+      },
+      { once: true }
+    );
   });
 }
 
@@ -318,39 +363,37 @@ function renderGrid(items) {
 
   return `
     <div class="grid">
-      ${items.map((x) => {
-        const first =
-          Array.isArray(x.images) && x.images.length
-            ? resolveImage(x.images[0])
-            : placeholder;
+      ${items
+        .map((x) => {
+          const first =
+            Array.isArray(x.images) && x.images.length
+              ? resolveImage(x.images[0])
+              : placeholder;
 
-        return `
-          <article class="card" data-open="${escapeHtml(x.id)}">
-            <img class="card__img"
-                 src="${placeholder}"
-                 data-src="${escapeHtml(first)}"
-                 alt="${escapeHtml(x.title)}"
-                 loading="lazy" />
+          return `
+            <article class="card" data-open="${escapeHtml(x.id)}">
+              <img class="card__img"
+                   src="${placeholder}"
+                   data-src="${escapeHtml(first)}"
+                   alt="${escapeHtml(x.title)}"
+                   loading="lazy" />
 
-            <div class="card__title">${escapeHtml(x.title)}</div>
-            <div class="card__meta">
-              ${escapeHtml(String(x.year ?? "—"))}
-              · ${escapeHtml(x.format ?? "—")}
-              · ${escapeHtml(x.packaging ?? "Unknown")}
-            </div>
-            <div class="card__meta muted">
-              ${escapeHtml(x.country ?? "—")}
-              · ${escapeHtml(
-                x.ean
-                  ? `EAN: ${x.ean}`
-                  : x.catalog
-                  ? `CAT: ${x.catalog}`
-                  : "—"
-              )}
-            </div>
-          </article>
-        `;
-      }).join("")}
+              <div class="card__title">${escapeHtml(x.title)}</div>
+              <div class="card__meta">
+                ${escapeHtml(String(x.year ?? "—"))}
+                · ${escapeHtml(x.format ?? "—")}
+                · ${escapeHtml(x.packaging ?? "Unknown")}
+              </div>
+              <div class="card__meta muted">
+                ${escapeHtml(x.country ?? "—")}
+                · ${escapeHtml(
+                  x.ean ? `EAN: ${x.ean}` : x.catalog ? `CAT: ${x.catalog}` : "—"
+                )}
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
     </div>
   `;
 }
@@ -374,39 +417,41 @@ function renderTable(items) {
           </tr>
         </thead>
         <tbody>
-          ${items.map((x) => {
-            const first =
-              Array.isArray(x.images) && x.images.length
-                ? resolveImage(x.images[0])
-                : placeholder;
+          ${items
+            .map((x) => {
+              const first =
+                Array.isArray(x.images) && x.images.length
+                  ? resolveImage(x.images[0])
+                  : placeholder;
 
-            return `
-              <tr data-open="${escapeHtml(x.id)}" style="cursor:pointer;">
-                <td>
-                  <img class="thumb"
-                       src="${placeholder}"
-                       data-src="${escapeHtml(first)}"
-                       alt="${escapeHtml(x.title)}"
-                       loading="lazy" />
-                </td>
-                <td>${escapeHtml(x.title)}</td>
-                <td>${escapeHtml(String(x.year ?? "—"))}</td>
-                <td>${escapeHtml(x.format ?? "—")}</td>
-                <td>${escapeHtml(x.packaging ?? "Unknown")}</td>
-                <td>${escapeHtml(x.country ?? "—")}</td>
-                <td>${escapeHtml(x.ean || x.catalog || "—")}</td>
-                <td>${x.owned ? "✓" : "—"}</td>
-              </tr>
-            `;
-          }).join("")}
+              return `
+                <tr data-open="${escapeHtml(x.id)}" style="cursor:pointer;">
+                  <td>
+                    <img class="thumb"
+                         src="${placeholder}"
+                         data-src="${escapeHtml(first)}"
+                         alt="${escapeHtml(x.title)}"
+                         loading="lazy" />
+                  </td>
+                  <td>${escapeHtml(x.title)}</td>
+                  <td>${escapeHtml(String(x.year ?? "—"))}</td>
+                  <td>${escapeHtml(x.format ?? "—")}</td>
+                  <td>${escapeHtml(x.packaging ?? "Unknown")}</td>
+                  <td>${escapeHtml(x.country ?? "—")}</td>
+                  <td>${escapeHtml(x.ean || x.catalog || "—")}</td>
+                  <td>${x.owned ? "✓" : "—"}</td>
+                </tr>
+              `;
+            })
+            .join("")}
         </tbody>
       </table>
     </div>
   `;
 }
 
-// -------------------- modal open (delegation) --------------------
-function bindOpenRelease() {
+// -------------------- open release modal (delegation) --------------------
+function bindOpenRelease(currentType) {
   const content = document.querySelector("#content");
   if (!content) return;
 
@@ -424,11 +469,14 @@ function bindOpenRelease() {
 
     openModal(renderRelease(item));
 
-    // Lazy images inside modal + mount gallery
     const modalRoot = document.querySelector("#modal-root");
     if (modalRoot) {
       initLazyImages(modalRoot);
       mountGallery(item);
+    }
+
+    if (isAuthed()) {
+      bindReleaseAdmin(currentType, id);
     }
   });
 }
@@ -454,6 +502,7 @@ function renderRelease(item) {
       ${kv("Catalog", item.catalog)}
       ${kv("EAN", item.ean)}
       ${kv("Owned", item.owned ? "Yes" : "No")}
+      ${kv("ID", item.id)}
     </div>
 
     <h3>Images</h3>
@@ -500,6 +549,16 @@ function renderRelease(item) {
     ` : `<p class="muted">—</p>`}
 
     ${item.notes ? `<h3>Notes</h3><p>${escapeHtml(item.notes)}</p>` : ""}
+
+    ${isAuthed() ? `
+      <div class="admin">
+        <h3>Admin</h3>
+        <div class="admin__row">
+          <button class="btn btn--accent" id="btn-edit" type="button">Edit</button>
+          <button class="btn btn--danger" id="btn-delete" type="button">Delete</button>
+        </div>
+      </div>
+    ` : ""}
   `;
 }
 
@@ -511,6 +570,69 @@ function kv(label, value) {
       <span>${escapeHtml(String(value))}</span>
     </div>
   `;
+}
+
+// -------------------- admin actions (Edit/Delete) --------------------
+function bindReleaseAdmin(currentType, id) {
+  const btnEdit = document.querySelector("#btn-edit");
+  const btnDelete = document.querySelector("#btn-delete");
+
+  btnEdit?.addEventListener("click", () => {
+    if (!isAuthed()) return;
+
+    const item = cache.all.find((x) => x.id === id);
+    if (!item) return;
+
+    openModal(renderEditReleaseForm(item));
+
+    const form = document.querySelector("#edit-release-form");
+    form?.addEventListener(
+      "submit",
+      (e) => {
+        e.preventDefault();
+        if (!isAuthed()) return;
+
+        try {
+          const patch = readEditReleaseForm(form);
+          updateRelease(id, patch);
+
+          // refresh data and UI
+          cache.all = getAll();
+          updateFormatsCache();
+          updateContent(currentType);
+
+          const updated = cache.all.find((x) => x.id === id);
+          if (!updated) return;
+
+          // stay in modal: show updated release
+          openModal(renderRelease(updated));
+
+          const modalRoot = document.querySelector("#modal-root");
+          if (modalRoot) {
+            initLazyImages(modalRoot);
+            mountGallery(updated);
+          }
+          if (isAuthed()) bindReleaseAdmin(currentType, id);
+        } catch (err) {
+          alert(err.message);
+        }
+      },
+      { once: true }
+    );
+  });
+
+  btnDelete?.addEventListener("click", () => {
+    if (!isAuthed()) return;
+    if (!confirm("Delete this release?")) return;
+
+    deleteRelease(id);
+
+    cache.all = getAll();
+    updateFormatsCache();
+    updateContent(currentType);
+
+    closeModalFallback();
+  });
 }
 
 // -------------------- gallery mount (6C) --------------------
@@ -538,7 +660,6 @@ function mountGallery(item) {
 
     idx = (next + urls.length) % urls.length;
 
-    // main image: set directly for instant switching
     imgMain.src = urls[idx];
     imgMain.onerror = () => { imgMain.src = placeholder; };
 
@@ -552,16 +673,14 @@ function mountGallery(item) {
     if (btnNext) btnNext.disabled = urls.length <= 1;
   }
 
-  // Buttons
   btnPrev?.addEventListener("click", () => setIndex(idx - 1));
   btnNext?.addEventListener("click", () => setIndex(idx + 1));
 
-  // Thumbs
   thumbs.forEach((t) => {
     t.addEventListener("click", () => setIndex(Number(t.dataset.gThumb)));
   });
 
-  // Swipe (pointer events)
+  // swipe
   let startX = 0;
   let active = false;
 
@@ -580,10 +699,11 @@ function mountGallery(item) {
     else setIndex(idx - 1);
   });
 
-  // Keyboard navigation: ← →, Home, End
+  // keyboard
   const onKey = (e) => {
-    // only if modal still open
-    const stillOpen = document.querySelector("#modal-root")?.querySelector("[data-gallery]");
+    const stillOpen = document
+      .querySelector("#modal-root")
+      ?.querySelector("[data-gallery]");
     if (!stillOpen) return;
 
     if (e.key === "ArrowLeft") {
@@ -603,19 +723,31 @@ function mountGallery(item) {
 
   document.addEventListener("keydown", onKey);
 
-  // Auto cleanup keyboard listener when modal closes
   const obs = new MutationObserver(() => {
-    // modal closed => modalRoot becomes empty
     if (!document.querySelector("#modal-root")?.firstElementChild) {
       document.removeEventListener("keydown", onKey);
       obs.disconnect();
     }
   });
-
   obs.observe(modalRoot, { childList: true });
 
-  // Initialize
   setIndex(0);
+}
+
+// -------------------- helpers --------------------
+function updateFormatsCache() {
+  cache.formatsByType.clear();
+  for (const t of ["single", "album", "lpu", "other"]) {
+    const typeItems = cache.all.filter((x) => x.type === t);
+    const formats = Array.from(new Set(typeItems.map((x) => x.format).filter(Boolean))).sort();
+    cache.formatsByType.set(t, formats);
+  }
+}
+
+// If you don't have closeModal() exported — this is safe fallback:
+function closeModalFallback() {
+  const mr = document.querySelector("#modal-root");
+  if (mr) mr.innerHTML = "";
 }
 
 // -------------------- utils --------------------

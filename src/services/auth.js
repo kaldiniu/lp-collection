@@ -2,8 +2,8 @@
 //
 const LS_KEY = "lp_admin_mode";
 
-// ⚠️ Не безопасность. Просто включение режима редактирования на статическом сайте.
-const ADMIN_PASSWORD = "lp-admin"; // поменяешь на свой
+// ⚠️ Это НЕ настоящая безопасность. Это режим редактирования на статическом сайте.
+const ADMIN_PASSWORD = "iurii";
 
 export function isAuthed() {
   return localStorage.getItem(LS_KEY) === "1";
