@@ -613,7 +613,11 @@
       "ean": "",
       "owned": true,
       "images": [
-        "lpu1.jpg"
+        "lpu1.jpg",
+        "https://lpcatalog.com/content/items/lpu/lpu1/lpu1-cd_1.jpg",
+        "https://lpcatalog.com/content/items/lpu/lpu1/lpu1-cd_2.jpg",
+        "https://lpcatalog.com/content/items/lpu/lpu1/lpu1-cd_3.jpg",
+        "https://lpcatalog.com/content/items/lpu/lpu1/lpu1-cd_4.jpg"
       ],
       "tracklist": [
         { "title": "Carousel" },

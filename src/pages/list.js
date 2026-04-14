@@ -1,6 +1,5 @@
 // src/pages/list.js
-// List page with: filters/search/sort, pagination, images (lazy + placeholder), and release details modal
-
+//
 import { loadBaseData } from "../data.js";
 import { getPrefs } from "../prefs.js";
 import { selectItems } from "../selectors.js";
@@ -150,65 +149,40 @@ function renderToolbar(state, formats) {
         <span class="field__label">Format</span>
         <select class="select" id="f-format">
           <option value="all">All</option>
-          ${formats
-            .map(
-              (f) => `
-            <option value="${escapeHtml(f)}" ${
-                state.filters.format === f ? "selected" : ""
-              }>${escapeHtml(f)}</option>
-          `
-            )
-            .join("")}
+          ${formats.map((f) => `
+            <option value="${escapeHtml(f)}" ${state.filters.format === f ? "selected" : ""}>${escapeHtml(f)}</option>
+          `).join("")}
         </select>
       </label>
 
       <label class="field">
         <span class="field__label">Owned</span>
         <select class="select" id="f-owned">
-          <option value="all" ${
-            state.filters.owned === "all" ? "selected" : ""
-          }>All</option>
-          <option value="true" ${
-            state.filters.owned === "true" ? "selected" : ""
-          }>Owned</option>
-          <option value="false" ${
-            state.filters.owned === "false" ? "selected" : ""
-          }>Not owned</option>
+          <option value="all" ${state.filters.owned === "all" ? "selected" : ""}>All</option>
+          <option value="true" ${state.filters.owned === "true" ? "selected" : ""}>Owned</option>
+          <option value="false" ${state.filters.owned === "false" ? "selected" : ""}>Not owned</option>
         </select>
       </label>
 
       <label class="field">
         <span class="field__label">Per page</span>
         <select class="select" id="page-size">
-          ${[16, 32, 64, 128]
-            .map(
-              (n) => `
-            <option value="${n}" ${
-                Number(state.pageSize) === n ? "selected" : ""
-              }>${n}</option>
-          `
-            )
-            .join("")}
+          ${[16, 32, 64, 128].map((n) => `
+            <option value="${n}" ${Number(state.pageSize) === n ? "selected" : ""}>${n}</option>
+          `).join("")}
         </select>
       </label>
 
       <label class="field">
         <span class="field__label">Sort</span>
         <select class="select" id="s-field">
-          ${["title", "country", "year", "owned"]
-            .map(
-              (f) =>
-                `<option value="${f}" ${
-                  state.sort.field === f ? "selected" : ""
-                }>${f}</option>`
-            )
-            .join("")}
+          ${["title", "country", "year", "owned"].map((f) =>
+            `<option value="${f}" ${state.sort.field === f ? "selected" : ""}>${f}</option>`
+          ).join("")}
         </select>
       </label>
 
-      <button class="btn" id="s-dir" type="button">${
-        state.sort.dir === "asc" ? "↑" : "↓"
-      }</button>
+      <button class="btn" id="s-dir" type="button">${state.sort.dir === "asc" ? "↑" : "↓"}</button>
 
       <button class="btn ${resetDisabled ? "btn--disabled" : ""}" id="btn-reset"
         type="button" ${resetDisabled ? "disabled" : ""}>
@@ -344,41 +318,39 @@ function renderGrid(items) {
 
   return `
     <div class="grid">
-      ${items
-        .map((x) => {
-          const first =
-            Array.isArray(x.images) && x.images.length
-              ? resolveImage(x.images[0])
-              : placeholder;
+      ${items.map((x) => {
+        const first =
+          Array.isArray(x.images) && x.images.length
+            ? resolveImage(x.images[0])
+            : placeholder;
 
-          return `
-            <article class="card" data-open="${escapeHtml(x.id)}">
-              <img class="card__img"
-                   src="${placeholder}"
-                   data-src="${escapeHtml(first)}"
-                   alt="${escapeHtml(x.title)}"
-                   loading="lazy" />
+        return `
+          <article class="card" data-open="${escapeHtml(x.id)}">
+            <img class="card__img"
+                 src="${placeholder}"
+                 data-src="${escapeHtml(first)}"
+                 alt="${escapeHtml(x.title)}"
+                 loading="lazy" />
 
-              <div class="card__title">${escapeHtml(x.title)}</div>
-              <div class="card__meta">
-                ${escapeHtml(String(x.year ?? "—"))}
-                · ${escapeHtml(x.format ?? "—")}
-                · ${escapeHtml(x.packaging ?? "Unknown")}
-              </div>
-              <div class="card__meta muted">
-                ${escapeHtml(x.country ?? "—")}
-                · ${escapeHtml(
-                  x.ean
-                    ? `EAN: ${x.ean}`
-                    : x.catalog
-                    ? `CAT: ${x.catalog}`
-                    : "—"
-                )}
-              </div>
-            </article>
-          `;
-        })
-        .join("")}
+            <div class="card__title">${escapeHtml(x.title)}</div>
+            <div class="card__meta">
+              ${escapeHtml(String(x.year ?? "—"))}
+              · ${escapeHtml(x.format ?? "—")}
+              · ${escapeHtml(x.packaging ?? "Unknown")}
+            </div>
+            <div class="card__meta muted">
+              ${escapeHtml(x.country ?? "—")}
+              · ${escapeHtml(
+                x.ean
+                  ? `EAN: ${x.ean}`
+                  : x.catalog
+                  ? `CAT: ${x.catalog}`
+                  : "—"
+              )}
+            </div>
+          </article>
+        `;
+      }).join("")}
     </div>
   `;
 }
@@ -402,33 +374,31 @@ function renderTable(items) {
           </tr>
         </thead>
         <tbody>
-          ${items
-            .map((x) => {
-              const first =
-                Array.isArray(x.images) && x.images.length
-                  ? resolveImage(x.images[0])
-                  : placeholder;
+          ${items.map((x) => {
+            const first =
+              Array.isArray(x.images) && x.images.length
+                ? resolveImage(x.images[0])
+                : placeholder;
 
-              return `
-                <tr data-open="${escapeHtml(x.id)}" style="cursor:pointer;">
-                  <td>
-                    <img class="thumb"
-                         src="${placeholder}"
-                         data-src="${escapeHtml(first)}"
-                         alt="${escapeHtml(x.title)}"
-                         loading="lazy" />
-                  </td>
-                  <td>${escapeHtml(x.title)}</td>
-                  <td>${escapeHtml(String(x.year ?? "—"))}</td>
-                  <td>${escapeHtml(x.format ?? "—")}</td>
-                  <td>${escapeHtml(x.packaging ?? "Unknown")}</td>
-                  <td>${escapeHtml(x.country ?? "—")}</td>
-                  <td>${escapeHtml(x.ean || x.catalog || "—")}</td>
-                  <td>${x.owned ? "✓" : "—"}</td>
-                </tr>
-              `;
-            })
-            .join("")}
+            return `
+              <tr data-open="${escapeHtml(x.id)}" style="cursor:pointer;">
+                <td>
+                  <img class="thumb"
+                       src="${placeholder}"
+                       data-src="${escapeHtml(first)}"
+                       alt="${escapeHtml(x.title)}"
+                       loading="lazy" />
+                </td>
+                <td>${escapeHtml(x.title)}</td>
+                <td>${escapeHtml(String(x.year ?? "—"))}</td>
+                <td>${escapeHtml(x.format ?? "—")}</td>
+                <td>${escapeHtml(x.packaging ?? "Unknown")}</td>
+                <td>${escapeHtml(x.country ?? "—")}</td>
+                <td>${escapeHtml(x.ean || x.catalog || "—")}</td>
+                <td>${x.owned ? "✓" : "—"}</td>
+              </tr>
+            `;
+          }).join("")}
         </tbody>
       </table>
     </div>
@@ -440,7 +410,7 @@ function bindOpenRelease() {
   const content = document.querySelector("#content");
   if (!content) return;
 
-  // bind once
+  // bind once per layout instance
   if (content.dataset.boundOpen === "1") return;
   content.dataset.boundOpen = "1";
 
@@ -454,9 +424,12 @@ function bindOpenRelease() {
 
     openModal(renderRelease(item));
 
-    // Lazy images inside modal
+    // Lazy images inside modal + mount gallery
     const modalRoot = document.querySelector("#modal-root");
-    if (modalRoot) initLazyImages(modalRoot);
+    if (modalRoot) {
+      initLazyImages(modalRoot);
+      mountGallery(item);
+    }
   });
 }
 
@@ -464,9 +437,9 @@ function bindOpenRelease() {
 function renderRelease(item) {
   const tracks = Array.isArray(item.tracklist) ? item.tracklist : [];
   const images = Array.isArray(item.images) ? item.images : [];
-
   const placeholder = getPlaceholder();
-  const first = images.length ? resolveImage(images[0]) : placeholder;
+
+  const urls = images.length ? images.map(resolveImage) : [placeholder];
 
   return `
     <h2>${escapeHtml(item.title)}</h2>
@@ -483,34 +456,48 @@ function renderRelease(item) {
       ${kv("Owned", item.owned ? "Yes" : "No")}
     </div>
 
-    <h3>Image</h3>
-    <img class="release-img"
-         src="${placeholder}"
-         data-src="${escapeHtml(first)}"
-         alt="${escapeHtml(item.title)}"
-         loading="lazy" />
+    <h3>Images</h3>
+    <div class="gallery" data-gallery>
+      <div class="gallery__main">
+        <button class="gallery__btn gallery__btn--prev" type="button" data-g-prev aria-label="Previous image">‹</button>
+
+        <img class="release-img"
+             src="${placeholder}"
+             data-src="${escapeHtml(urls[0])}"
+             alt="${escapeHtml(item.title)}"
+             loading="lazy"
+             data-g-main />
+
+        <button class="gallery__btn gallery__btn--next" type="button" data-g-next aria-label="Next image">›</button>
+      </div>
+
+      <div class="gallery__count" data-g-count>1 / ${urls.length}</div>
+
+      ${urls.length > 1 ? `
+        <div class="gallery__thumbs">
+          ${urls.map((u, i) => `
+            <img class="gallery__thumb ${i === 0 ? "is-active" : ""}"
+                 src="${placeholder}"
+                 data-src="${escapeHtml(u)}"
+                 alt="thumb ${i + 1}"
+                 loading="lazy"
+                 data-g-thumb="${i}" />
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
 
     <h3>Tracklist</h3>
-    ${
-      tracks.length
-        ? `
+    ${tracks.length ? `
       <ol class="tracklist">
-        ${tracks
-          .map(
-            (t) => `
+        ${tracks.map((t) => `
           <li>
             <span>${escapeHtml(t.title ?? "")}</span>
-            <span class="muted">${escapeHtml(
-              t.duration ? t.duration : "—"
-            )}</span>
+            <span class="muted">${escapeHtml(t.duration ? t.duration : "—")}</span>
           </li>
-        `
-          )
-          .join("")}
+        `).join("")}
       </ol>
-    `
-        : `<p class="muted">—</p>`
-    }
+    ` : `<p class="muted">—</p>`}
 
     ${item.notes ? `<h3>Notes</h3><p>${escapeHtml(item.notes)}</p>` : ""}
   `;
@@ -524,6 +511,111 @@ function kv(label, value) {
       <span>${escapeHtml(String(value))}</span>
     </div>
   `;
+}
+
+// -------------------- gallery mount (6C) --------------------
+function mountGallery(item) {
+  const modalRoot = document.querySelector("#modal-root");
+  if (!modalRoot) return;
+
+  const gallery = modalRoot.querySelector("[data-gallery]");
+  if (!gallery) return;
+
+  const placeholder = getPlaceholder();
+  const raw = Array.isArray(item.images) ? item.images : [];
+  const urls = raw.length ? raw.map(resolveImage) : [placeholder];
+
+  const imgMain = gallery.querySelector("[data-g-main]");
+  const btnPrev = gallery.querySelector("[data-g-prev]");
+  const btnNext = gallery.querySelector("[data-g-next]");
+  const count = gallery.querySelector("[data-g-count]");
+  const thumbs = gallery.querySelectorAll("[data-g-thumb]");
+
+  let idx = 0;
+
+  function setIndex(next) {
+    if (!urls.length) return;
+
+    idx = (next + urls.length) % urls.length;
+
+    // main image: set directly for instant switching
+    imgMain.src = urls[idx];
+    imgMain.onerror = () => { imgMain.src = placeholder; };
+
+    if (count) count.textContent = `${idx + 1} / ${urls.length}`;
+
+    thumbs.forEach((t) => {
+      t.classList.toggle("is-active", Number(t.dataset.gThumb) === idx);
+    });
+
+    if (btnPrev) btnPrev.disabled = urls.length <= 1;
+    if (btnNext) btnNext.disabled = urls.length <= 1;
+  }
+
+  // Buttons
+  btnPrev?.addEventListener("click", () => setIndex(idx - 1));
+  btnNext?.addEventListener("click", () => setIndex(idx + 1));
+
+  // Thumbs
+  thumbs.forEach((t) => {
+    t.addEventListener("click", () => setIndex(Number(t.dataset.gThumb)));
+  });
+
+  // Swipe (pointer events)
+  let startX = 0;
+  let active = false;
+
+  imgMain?.addEventListener("pointerdown", (e) => {
+    active = true;
+    startX = e.clientX;
+    imgMain.setPointerCapture?.(e.pointerId);
+  });
+
+  imgMain?.addEventListener("pointerup", (e) => {
+    if (!active) return;
+    active = false;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) < 40) return;
+    if (dx < 0) setIndex(idx + 1);
+    else setIndex(idx - 1);
+  });
+
+  // Keyboard navigation: ← →, Home, End
+  const onKey = (e) => {
+    // only if modal still open
+    const stillOpen = document.querySelector("#modal-root")?.querySelector("[data-gallery]");
+    if (!stillOpen) return;
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setIndex(idx - 1);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setIndex(idx + 1);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setIndex(urls.length - 1);
+    }
+  };
+
+  document.addEventListener("keydown", onKey);
+
+  // Auto cleanup keyboard listener when modal closes
+  const obs = new MutationObserver(() => {
+    // modal closed => modalRoot becomes empty
+    if (!document.querySelector("#modal-root")?.firstElementChild) {
+      document.removeEventListener("keydown", onKey);
+      obs.disconnect();
+    }
+  });
+
+  obs.observe(modalRoot, { childList: true });
+
+  // Initialize
+  setIndex(0);
 }
 
 // -------------------- utils --------------------
