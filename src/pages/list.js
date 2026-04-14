@@ -1,70 +1,67 @@
-//src/pages/list.js
-// 
+// src/pages/list.js
+// List page with: filters/search/sort, pagination, images (lazy + placeholder), and release details modal
+
 import { loadBaseData } from "../data.js";
 import { getPrefs } from "../prefs.js";
 import { selectItems } from "../selectors.js";
-import { loadListState, saveListState, resetListState, isDefaultState } from "../listState.js";
+import {
+  loadListState,
+  saveListState,
+  resetListState,
+  isDefaultState,
+} from "../listState.js";
 import { openModal } from "../ui/modal.js";
+import { resolveImage, initLazyImages, getPlaceholder } from "../ui/images.js";
 
+// -------------------- cache --------------------
 let cache = {
   loaded: false,
   all: [],
   formatsByType: new Map(),
 };
 
+// -------------------- entry --------------------
 export async function renderList(type) {
   const app = document.querySelector("#app");
 
-  // 1) Загружаем данные один раз (кэш)
+  // 1) Load data once
   if (!cache.loaded) {
     app.innerHTML = "<p>Loading...</p>";
     const data = await loadBaseData();
     cache.all = data.items ?? [];
     cache.loaded = true;
 
-    // заранее посчитаем форматы для каждого типа (быстро и удобно)
+    // Pre-calc formats per type
     for (const t of ["single", "album", "lpu", "other"]) {
-      const typeItems = cache.all.filter(x => x.type === t);
-      const formats = Array.from(new Set(typeItems.map(x => x.format).filter(Boolean))).sort();
+      const typeItems = cache.all.filter((x) => x.type === t);
+      const formats = Array.from(
+        new Set(typeItems.map((x) => x.format).filter(Boolean))
+      ).sort();
       cache.formatsByType.set(t, formats);
     }
   }
 
-  // 2) Рисуем каркас страницы ОДИН РАЗ (toolbar + контейнеры)
+  // 2) Ensure layout exists for this type
   ensureLayout(app, type);
 
-  // 3) Обновляем содержимое (count + list) без перерисовки toolbar
+  // 3) Update content only (keeps input focus)
   updateContent(type);
 }
 
-function bindOpenRelease() {
-  const content = document.querySelector("#content");
-  if (!content) return;
-
-  content.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-open]");
-    if (!el) return;
-
-    const id = el.dataset.open;
-    const item = cache.all.find(x => x.id === id);
-    if (!item) return;
-
-    openModal(renderRelease(item));
-  });
-}
-
+// -------------------- layout --------------------
 function ensureLayout(app, type) {
-  const root = app.querySelector("[data-list-layout='1']");
+  const root = app.querySelector('[data-list-layout="1"]');
 
-  // если layout уже есть, но для другого type — пересоздадим полностью
+  // If layout exists but for another type — rebuild
   if (root && root.dataset.type !== type) {
-    app.innerHTML = "";          // уничтожаем старый layout
-    return ensureLayout(app, type); // создаём новый под новый type
+    app.innerHTML = "";
+    return ensureLayout(app, type);
   }
 
-  // если layout уже есть и type тот же — ничего не пересоздаём
+  // If layout already exists for this type — just update title
   if (root) {
-    app.querySelector("#page-title").textContent = type.toUpperCase();
+    const title = root.querySelector("#page-title");
+    if (title) title.textContent = type.toUpperCase();
     return;
   }
 
@@ -89,6 +86,7 @@ function ensureLayout(app, type) {
   bindOpenRelease();
 }
 
+// -------------------- content update --------------------
 function updateContent(type) {
   const state = loadListState(type);
 
@@ -98,26 +96,36 @@ function updateContent(type) {
     filters: state.filters,
     sort: state.sort,
     page: state.page,
-    pageSize: state.pageSize
+    pageSize: state.pageSize,
   });
 
-  const { view } = getPrefs();
+  // Sync page if clamped by selector (e.g., after filters)
+  if (result.page !== state.page) {
+    state.page = result.page;
+    saveListState(type, state);
+  }
 
-  // count
-  const countLine = document.querySelector("#count-line");
+  const { view } = getPrefs();
+  const root = document.querySelector('[data-list-layout="1"]');
+
+  // Count line
+  const countLine = root.querySelector("#count-line");
   countLine.textContent = `Показано: ${result.startIndex}-${result.endIndex} из ${result.total}`;
 
-  // list
-  const content = document.querySelector("#content");
+  // Content
+  const content = root.querySelector("#content");
   content.innerHTML = view === "grid" ? renderGrid(result.items) : renderTable(result.items);
 
-  // pagination
-  const pager = document.querySelector("#pager");
+  // Lazy images in list (grid or table)
+  initLazyImages(content);
+
+  // Pager
+  const pager = root.querySelector("#pager");
   pager.innerHTML = renderPager(result.page, result.pages);
   bindPager(type, result.page, result.pages);
 
-  // reset button enabled/disabled
-  const btnReset = document.querySelector("#btn-reset");
+  // Reset button state
+  const btnReset = root.querySelector("#btn-reset");
   if (btnReset) {
     const disabled = isDefaultState(state);
     btnReset.disabled = disabled;
@@ -125,8 +133,7 @@ function updateContent(type) {
   }
 }
 
-/* ---------- toolbar ---------- */
-
+// -------------------- toolbar --------------------
 function renderToolbar(state, formats) {
   const resetDisabled = isDefaultState(state);
 
@@ -143,40 +150,65 @@ function renderToolbar(state, formats) {
         <span class="field__label">Format</span>
         <select class="select" id="f-format">
           <option value="all">All</option>
-          ${formats.map(f => `
-            <option value="${escapeHtml(f)}" ${state.filters.format === f ? "selected" : ""}>${escapeHtml(f)}</option>
-          `).join("")}
+          ${formats
+            .map(
+              (f) => `
+            <option value="${escapeHtml(f)}" ${
+                state.filters.format === f ? "selected" : ""
+              }>${escapeHtml(f)}</option>
+          `
+            )
+            .join("")}
         </select>
       </label>
 
       <label class="field">
         <span class="field__label">Owned</span>
         <select class="select" id="f-owned">
-          <option value="all" ${state.filters.owned === "all" ? "selected" : ""}>All</option>
-          <option value="true" ${state.filters.owned === "true" ? "selected" : ""}>Owned</option>
-          <option value="false" ${state.filters.owned === "false" ? "selected" : ""}>Not owned</option>
+          <option value="all" ${
+            state.filters.owned === "all" ? "selected" : ""
+          }>All</option>
+          <option value="true" ${
+            state.filters.owned === "true" ? "selected" : ""
+          }>Owned</option>
+          <option value="false" ${
+            state.filters.owned === "false" ? "selected" : ""
+          }>Not owned</option>
         </select>
       </label>
 
       <label class="field">
         <span class="field__label">Per page</span>
         <select class="select" id="page-size">
-          ${[16, 32, 64, 128].map(n => `
-            <option value="${n}" ${Number(state.pageSize) === n ? "selected" : ""}>${n}</option>
-          `).join("")}
+          ${[16, 32, 64, 128]
+            .map(
+              (n) => `
+            <option value="${n}" ${
+                Number(state.pageSize) === n ? "selected" : ""
+              }>${n}</option>
+          `
+            )
+            .join("")}
         </select>
       </label>
 
       <label class="field">
         <span class="field__label">Sort</span>
         <select class="select" id="s-field">
-          ${["title","country","year","owned"].map(f =>
-            `<option value="${f}" ${state.sort.field === f ? "selected" : ""}>${f}</option>`
-          ).join("")}
+          ${["title", "country", "year", "owned"]
+            .map(
+              (f) =>
+                `<option value="${f}" ${
+                  state.sort.field === f ? "selected" : ""
+                }>${f}</option>`
+            )
+            .join("")}
         </select>
       </label>
 
-      <button class="btn" id="s-dir" type="button">${state.sort.dir === "asc" ? "↑" : "↓"}</button>
+      <button class="btn" id="s-dir" type="button">${
+        state.sort.dir === "asc" ? "↑" : "↓"
+      }</button>
 
       <button class="btn ${resetDisabled ? "btn--disabled" : ""}" id="btn-reset"
         type="button" ${resetDisabled ? "disabled" : ""}>
@@ -187,20 +219,19 @@ function renderToolbar(state, formats) {
 }
 
 function bindToolbar(type) {
-  const q = document.querySelector("#q");
-  const fFormat = document.querySelector("#f-format");
-  const fOwned = document.querySelector("#f-owned");
-  const pageSizeSel = document.querySelector("#page-size");
-  const sField = document.querySelector("#s-field");
-  const sDir = document.querySelector("#s-dir");
-  const btnReset = document.querySelector("#btn-reset");
+  const root = document.querySelector('[data-list-layout="1"]');
+  const q = root.querySelector("#q");
+  const fFormat = root.querySelector("#f-format");
+  const fOwned = root.querySelector("#f-owned");
+  const sField = root.querySelector("#s-field");
+  const sDir = root.querySelector("#s-dir");
+  const btnReset = root.querySelector("#btn-reset");
+  const pageSizeSel = root.querySelector("#page-size");
 
-  // debounce для input (не обязателен, но приятно)
-  let t = null;
+  let t = null; // debounce timer
 
   const read = () => loadListState(type);
   const write = (st) => saveListState(type, st);
-
   const apply = () => updateContent(type);
 
   q?.addEventListener("input", () => {
@@ -208,8 +239,6 @@ function bindToolbar(type) {
     st.search = q.value;
     st.page = 1;
     write(st);
-
-    // debounce: обновляем через 150мс после последнего ввода
     clearTimeout(t);
     t = setTimeout(apply, 150);
   });
@@ -232,7 +261,7 @@ function bindToolbar(type) {
 
   pageSizeSel?.addEventListener("change", () => {
     const st = read();
-    st.pageSize = Number(pageSizeSel.value) || 32;
+    st.pageSize = Number(pageSizeSel.value) || st.pageSize;
     st.page = 1;
     write(st);
     apply();
@@ -251,79 +280,28 @@ function bindToolbar(type) {
     st.sort.dir = st.sort.dir === "asc" ? "desc" : "asc";
     st.page = 1;
     write(st);
-
-    // обновим стрелку на кнопке, но не перерисовываем весь toolbar
     sDir.textContent = st.sort.dir === "asc" ? "↑" : "↓";
-
     apply();
   });
 
   btnReset?.addEventListener("click", () => {
-    resetListState(type);
-    // сбросим UI значения вручную (toolbar остаётся, поэтому обновим элементы)
-    const st = loadListState(type);
+    const st = resetListState(type);
+
+    // reset UI values (toolbar persists)
     q.value = st.search;
     fFormat.value = st.filters.format;
     fOwned.value = st.filters.owned;
     sField.value = st.sort.field;
     sDir.textContent = st.sort.dir === "asc" ? "↑" : "↓";
     pageSizeSel.value = String(st.pageSize);
+
     apply();
+    root.querySelector("#page-title")?.scrollIntoView({ block: "start" });
   });
 }
 
-/* ---------- views ---------- */
-
-function renderGrid(items) {
-  return `
-    <div class="grid">
-      ${items.map(x => `
-        <article class="card" data-open="${escapeHtml(x.id)}">
-          <div class="card__title">${escapeHtml(x.title)}</div>
-          <div class="card__meta">
-            ${escapeHtml(String(x.year ?? "—"))}
-            · ${escapeHtml(x.format ?? "—")}
-            · ${escapeHtml(x.packaging ?? "Unknown")}
-          </div>
-          <div class="card__meta muted">
-            ${escapeHtml(x.country ?? "—")}
-            · ${escapeHtml(x.ean ? `EAN: ${x.ean}` : (x.catalog ? `CAT: ${x.catalog}` : "n/a"))}
-          </div>
-        </article>
-      `).join("")}
-    </div>
-  `;
-}
-
-function renderTable(items) {
-  return `
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Title</th><th>Year</th><th>Format</th><th>Packaging</th><th>Country</th><th>EAN/Catalog</th><th>Owned</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(x => `
-            <tr data-open="${escapeHtml(x.id)}">
-              <td>${escapeHtml(x.title)}</td>
-              <td>${escapeHtml(String(x.year ?? "—"))}</td>
-              <td>${escapeHtml(x.format ?? "—")}</td>
-              <td>${escapeHtml(x.packaging ?? "Unknown")}</td>
-              <td>${escapeHtml(x.country ?? "—")}</td>
-              <td>${escapeHtml(x.ean || x.catalog || "n/a")}</td>
-              <td>${x.owned ? "✓" : "—"}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
+// -------------------- pager --------------------
 function renderPager(page, pages) {
-  // если страниц 1 — не показываем ничего
   if (pages <= 1) return "";
 
   const prevDisabled = page <= 1 ? "disabled" : "";
@@ -333,9 +311,7 @@ function renderPager(page, pages) {
     <div class="pager">
       <button class="btn" data-page="1" ${prevDisabled}>« First</button>
       <button class="btn" data-page="${page - 1}" ${prevDisabled}>‹ Prev</button>
-
       <span class="pager__info">Page <b>${page}</b> / <b>${pages}</b></span>
-
       <button class="btn" data-page="${page + 1}" ${nextDisabled}>Next ›</button>
       <button class="btn" data-page="${pages}" ${nextDisabled}>Last »</button>
     </div>
@@ -346,7 +322,7 @@ function bindPager(type, page, pages) {
   const pager = document.querySelector("#pager");
   if (!pager || pages <= 1) return;
 
-  pager.querySelectorAll("[data-page]").forEach(btn => {
+  pager.querySelectorAll("[data-page]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const targetPage = Number(btn.dataset.page);
       if (!Number.isFinite(targetPage)) return;
@@ -356,19 +332,141 @@ function bindPager(type, page, pages) {
       const st = loadListState(type);
       st.page = targetPage;
       saveListState(type, st);
-
-      // обновляем только контент (toolbar не трогаем)
       updateContent(type);
-
-      // опционально: прокрутить к верху списка
       document.querySelector("#page-title")?.scrollIntoView({ block: "start" });
     });
   });
 }
 
+// -------------------- list views --------------------
+function renderGrid(items) {
+  const placeholder = getPlaceholder();
+
+  return `
+    <div class="grid">
+      ${items
+        .map((x) => {
+          const first =
+            Array.isArray(x.images) && x.images.length
+              ? resolveImage(x.images[0])
+              : placeholder;
+
+          return `
+            <article class="card" data-open="${escapeHtml(x.id)}">
+              <img class="card__img"
+                   src="${placeholder}"
+                   data-src="${escapeHtml(first)}"
+                   alt="${escapeHtml(x.title)}"
+                   loading="lazy" />
+
+              <div class="card__title">${escapeHtml(x.title)}</div>
+              <div class="card__meta">
+                ${escapeHtml(String(x.year ?? "—"))}
+                · ${escapeHtml(x.format ?? "—")}
+                · ${escapeHtml(x.packaging ?? "Unknown")}
+              </div>
+              <div class="card__meta muted">
+                ${escapeHtml(x.country ?? "—")}
+                · ${escapeHtml(
+                  x.ean
+                    ? `EAN: ${x.ean}`
+                    : x.catalog
+                    ? `CAT: ${x.catalog}`
+                    : "—"
+                )}
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderTable(items) {
+  const placeholder = getPlaceholder();
+
+  return `
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Cover</th>
+            <th>Title</th>
+            <th>Year</th>
+            <th>Format</th>
+            <th>Packaging</th>
+            <th>Country</th>
+            <th>EAN/Catalog</th>
+            <th>Owned</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items
+            .map((x) => {
+              const first =
+                Array.isArray(x.images) && x.images.length
+                  ? resolveImage(x.images[0])
+                  : placeholder;
+
+              return `
+                <tr data-open="${escapeHtml(x.id)}" style="cursor:pointer;">
+                  <td>
+                    <img class="thumb"
+                         src="${placeholder}"
+                         data-src="${escapeHtml(first)}"
+                         alt="${escapeHtml(x.title)}"
+                         loading="lazy" />
+                  </td>
+                  <td>${escapeHtml(x.title)}</td>
+                  <td>${escapeHtml(String(x.year ?? "—"))}</td>
+                  <td>${escapeHtml(x.format ?? "—")}</td>
+                  <td>${escapeHtml(x.packaging ?? "Unknown")}</td>
+                  <td>${escapeHtml(x.country ?? "—")}</td>
+                  <td>${escapeHtml(x.ean || x.catalog || "—")}</td>
+                  <td>${x.owned ? "✓" : "—"}</td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// -------------------- modal open (delegation) --------------------
+function bindOpenRelease() {
+  const content = document.querySelector("#content");
+  if (!content) return;
+
+  // bind once
+  if (content.dataset.boundOpen === "1") return;
+  content.dataset.boundOpen = "1";
+
+  content.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-open]");
+    if (!el) return;
+
+    const id = el.dataset.open;
+    const item = cache.all.find((x) => x.id === id);
+    if (!item) return;
+
+    openModal(renderRelease(item));
+
+    // Lazy images inside modal
+    const modalRoot = document.querySelector("#modal-root");
+    if (modalRoot) initLazyImages(modalRoot);
+  });
+}
+
+// -------------------- release details --------------------
 function renderRelease(item) {
   const tracks = Array.isArray(item.tracklist) ? item.tracklist : [];
   const images = Array.isArray(item.images) ? item.images : [];
+
+  const placeholder = getPlaceholder();
+  const first = images.length ? resolveImage(images[0]) : placeholder;
 
   return `
     <h2>${escapeHtml(item.title)}</h2>
@@ -385,35 +483,50 @@ function renderRelease(item) {
       ${kv("Owned", item.owned ? "Yes" : "No")}
     </div>
 
-    ${images.length ? `
-      <h3>Images</h3>
-      <img class="release-img" src="${escapeHtml(images[0])}" alt="">
-    ` : ""}
+    <h3>Image</h3>
+    <img class="release-img"
+         src="${placeholder}"
+         data-src="${escapeHtml(first)}"
+         alt="${escapeHtml(item.title)}"
+         loading="lazy" />
 
-    ${tracks.length ? `
-      <h3>Tracklist</h3>
+    <h3>Tracklist</h3>
+    ${
+      tracks.length
+        ? `
       <ol class="tracklist">
-        ${tracks.map(t => `
+        ${tracks
+          .map(
+            (t) => `
           <li>
             <span>${escapeHtml(t.title ?? "")}</span>
-            <span class="muted">${escapeHtml(t.duration ? t.duration : "—")}</span>
+            <span class="muted">${escapeHtml(
+              t.duration ? t.duration : "—"
+            )}</span>
           </li>
-        `).join("")}
+        `
+          )
+          .join("")}
       </ol>
-    ` : `<p class="muted">Tracklist: —</p>`}
+    `
+        : `<p class="muted">—</p>`
+    }
 
-    ${item.notes ? `
-      <h3>Notes</h3>
-      <p>${escapeHtml(item.notes)}</p>
-    ` : ""}
+    ${item.notes ? `<h3>Notes</h3><p>${escapeHtml(item.notes)}</p>` : ""}
   `;
 }
 
-function kv(k, v) {
-  if (v == null || v === "") return "";
-  return `<div class="kv__row"><span class="muted">${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`;
+function kv(label, value) {
+  if (value == null || value === "") return "";
+  return `
+    <div class="kv__row">
+      <span class="muted">${escapeHtml(label)}</span>
+      <span>${escapeHtml(String(value))}</span>
+    </div>
+  `;
 }
 
+// -------------------- utils --------------------
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (m) => ({
     "&": "&amp;",
@@ -423,4 +536,3 @@ function escapeHtml(s) {
     "'": "&#039;",
   }[m]));
 }
-
