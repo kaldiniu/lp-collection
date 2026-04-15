@@ -1,6 +1,9 @@
 // src/ui/addReleaseForm.js
-//
 import { makeId } from "../id.js";
+import { normalizeRelease } from "../normalize.js";
+import { FORMATS } from "../constants/format.js";
+import { PACKAGING } from "../constants/packaging.js";
+import { COUNTRIES } from "../constants/country.js";
 
 export function renderAddReleaseForm(currentType) {
   return `
@@ -16,27 +19,33 @@ export function renderAddReleaseForm(currentType) {
 
         <label class="field">
           <span class="field__label">Year</span>
-          <input class="input" name="year" type="number" min="1990" max="2100" />
+          <input class="input" name="year" type="number" min="1900" max="2100" />
         </label>
 
         <label class="field">
           <span class="field__label">Format *</span>
-          <input class="input" name="format" required placeholder="CD / Vinyl / DVD / Cassette ..." />
+          <select class="select" name="format" required>
+            ${FORMATS.map(f => `<option value="${escapeAttr(f)}">${escapeHtml(f)}</option>`).join("")}
+          </select>
         </label>
 
         <label class="field">
           <span class="field__label">Packaging</span>
-          <input class="input" name="packaging" placeholder="J-Card Case (7mm) / Digipak / Jewel ..." />
+          <select class="select" name="packaging">
+            ${PACKAGING.map(p => `<option value="${escapeAttr(p)}">${escapeHtml(p)}</option>`).join("")}
+          </select>
         </label>
 
         <label class="field">
           <span class="field__label">Era</span>
-          <input class="input" name="era" placeholder="Hybrid Theory / Reanimation / Meteora ..." />
+          <input class="input" name="era" />
         </label>
 
         <label class="field">
           <span class="field__label">Country</span>
-          <input class="input" name="country" placeholder="Germany / AU / US / UK ..." />
+          <select class="select" name="country">
+            ${COUNTRIES.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("")}
+          </select>
         </label>
 
         <label class="field">
@@ -84,31 +93,30 @@ export function readAddReleaseForm(form, currentType) {
   const fd = new FormData(form);
 
   const title = String(fd.get("title") ?? "").trim();
-  const format = String(fd.get("format") ?? "").trim();
-  const country = String(fd.get("country") ?? "").trim();
-  const packaging = String(fd.get("packaging") ?? "").trim();
-  const era = String(fd.get("era") ?? "").trim();
-  const catalog = String(fd.get("catalog") ?? "").trim();
-  const ean = String(fd.get("ean") ?? "").trim();
-  const notes = String(fd.get("notes") ?? "").trim();
-
   const yearRaw = String(fd.get("year") ?? "").trim();
   const year = yearRaw ? Number(yearRaw) : null;
 
+  const format = String(fd.get("format") ?? "").trim();
+  const packaging = String(fd.get("packaging") ?? "").trim();
+  const era = String(fd.get("era") ?? "").trim();
+  const country = String(fd.get("country") ?? "").trim();
+
+  const catalog = String(fd.get("catalog") ?? "").trim();
+  const ean = String(fd.get("ean") ?? "").trim();
   const owned = String(fd.get("owned")) === "true";
 
   const images = parseLines(String(fd.get("images") ?? ""));
   const tracklist = parseTracklist(String(fd.get("tracklist") ?? ""));
+  const notes = String(fd.get("notes") ?? "").trim();
 
   if (!title) throw new Error("Title is required");
-  if (!format) throw new Error("Format is required");
 
   const id = makeId({ title, format, country, ean, catalog, year });
 
-  return {
+  return normalizeRelease({
     id,
     title,
-    type: currentType, // ✅ фиксируем тип текущим разделом
+    type: currentType, // fixed by section
     year,
     format,
     packaging,
@@ -120,7 +128,7 @@ export function readAddReleaseForm(form, currentType) {
     images,
     tracklist,
     notes,
-  };
+  });
 }
 
 function parseLines(text) {
@@ -149,4 +157,9 @@ function escapeHtml(s) {
     '"': "&quot;",
     "'": "&#039;",
   }[m]));
+}
+
+// Для value="" внутри option лучше экранировать ещё и кавычки
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, "&quot;");
 }

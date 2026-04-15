@@ -1,5 +1,9 @@
 // src/ui/editReleaseForm.js
-//
+import { normalizeReleasePatch } from "../normalize.js";
+import { FORMATS } from "../constants/format.js";
+import { PACKAGING } from "../constants/packaging.js";
+import { COUNTRIES } from "../constants/country.js";
+
 export function renderEditReleaseForm(item) {
   const images = Array.isArray(item.images) ? item.images.join("\n") : "";
   const tracklist = Array.isArray(item.tracklist)
@@ -7,6 +11,10 @@ export function renderEditReleaseForm(item) {
         .map((t) => (t.duration ? `${t.title} | ${t.duration}` : `${t.title}`))
         .join("\n")
     : "";
+
+  const fmt = FORMATS.includes(item.format) ? item.format : "Other";
+  const pkg = PACKAGING.includes(item.packaging) ? item.packaging : "Unknown";
+  const ctry = COUNTRIES.includes(item.country) ? item.country : "Unknown";
 
   return `
     <h2>Edit release</h2>
@@ -16,43 +24,49 @@ export function renderEditReleaseForm(item) {
       <div class="form__grid">
         <label class="field">
           <span class="field__label">Title *</span>
-          <input class="input" name="title" required value="${escapeHtml(item.title ?? "")}" />
+          <input class="input" name="title" required value="${escapeAttr(item.title ?? "")}" />
         </label>
 
         <label class="field">
           <span class="field__label">Year</span>
           <input class="input" name="year" type="number" min="1900" max="2100"
-                 value="${escapeHtml(item.year ?? "")}" />
+                 value="${escapeAttr(item.year ?? "")}" />
         </label>
 
         <label class="field">
           <span class="field__label">Format *</span>
-          <input class="input" name="format" required value="${escapeHtml(item.format ?? "")}" />
+          <select class="select" name="format" required>
+            ${FORMATS.map(f => `<option value="${escapeAttr(f)}" ${fmt === f ? "selected" : ""}>${escapeHtml(f)}</option>`).join("")}
+          </select>
         </label>
 
         <label class="field">
           <span class="field__label">Packaging</span>
-          <input class="input" name="packaging" value="${escapeHtml(item.packaging ?? "")}" />
+          <select class="select" name="packaging">
+            ${PACKAGING.map(p => `<option value="${escapeAttr(p)}" ${pkg === p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}
+          </select>
         </label>
 
         <label class="field">
           <span class="field__label">Era</span>
-          <input class="input" name="era" value="${escapeHtml(item.era ?? "")}" />
+          <input class="input" name="era" value="${escapeAttr(item.era ?? "")}" />
         </label>
 
         <label class="field">
           <span class="field__label">Country</span>
-          <input class="input" name="country" value="${escapeHtml(item.country ?? "")}" />
+          <select class="select" name="country">
+            ${COUNTRIES.map(c => `<option value="${escapeAttr(c)}" ${ctry === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+          </select>
         </label>
 
         <label class="field">
           <span class="field__label">Catalog</span>
-          <input class="input" name="catalog" value="${escapeHtml(item.catalog ?? "")}" />
+          <input class="input" name="catalog" value="${escapeAttr(item.catalog ?? "")}" />
         </label>
 
         <label class="field">
           <span class="field__label">EAN</span>
-          <input class="input" name="ean" value="${escapeHtml(item.ean ?? "")}" />
+          <input class="input" name="ean" value="${escapeAttr(item.ean ?? "")}" />
         </label>
 
         <label class="field">
@@ -90,26 +104,27 @@ export function readEditReleaseForm(form) {
   const fd = new FormData(form);
 
   const title = String(fd.get("title") ?? "").trim();
-  const format = String(fd.get("format") ?? "").trim();
-  const packaging = String(fd.get("packaging") ?? "").trim();
-  const era = String(fd.get("era") ?? "").trim();
-  const country = String(fd.get("country") ?? "").trim();
-  const catalog = String(fd.get("catalog") ?? "").trim();
-  const ean = String(fd.get("ean") ?? "").trim();
-  const notes = String(fd.get("notes") ?? "").trim();
 
   const yearRaw = String(fd.get("year") ?? "").trim();
   const year = yearRaw ? Number(yearRaw) : null;
 
-  const owned = String(fd.get("owned")) === "true";
+  const format = String(fd.get("format") ?? "").trim();
+  const packaging = String(fd.get("packaging") ?? "").trim();
+  const era = String(fd.get("era") ?? "").trim();
+  const country = String(fd.get("country") ?? "").trim();
 
-  if (!title) throw new Error("Title is required");
-  if (!format) throw new Error("Format is required");
+  const catalog = String(fd.get("catalog") ?? "").trim();
+  const ean = String(fd.get("ean") ?? "").trim();
+  const owned = String(fd.get("owned")) === "true";
 
   const images = parseLines(String(fd.get("images") ?? ""));
   const tracklist = parseTracklist(String(fd.get("tracklist") ?? ""));
+  const notes = String(fd.get("notes") ?? "").trim();
 
-  return {
+  if (!title) throw new Error("Title is required");
+
+  // patch: только поля, которые мы редактируем
+  const patch = {
     title,
     year,
     format,
@@ -123,6 +138,8 @@ export function readEditReleaseForm(form) {
     tracklist,
     notes,
   };
+
+  return normalizeReleasePatch(patch);
 }
 
 function parseLines(text) {
@@ -151,4 +168,8 @@ function escapeHtml(s) {
     '"': "&quot;",
     "'": "&#039;",
   }[m]));
+}
+
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, "&quot;");
 }

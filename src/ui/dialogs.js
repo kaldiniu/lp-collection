@@ -1,13 +1,11 @@
 // src/ui/dialogs.js
-// Custom dialogs: confirm + alert
-// Rendered into #dialog-root (separate from #modal-root so it won't break your release modal)
 
 const DEFAULTS = {
   title: "Message",
   confirmText: "OK",
   cancelText: "Cancel",
   danger: false,
-  closeOnBackdrop: false, // ✅ only Cancel/OK
+  closeOnBackdrop: false, // строго: только кнопки
 };
 
 export function confirmPopup(message, options = {}) {
@@ -18,20 +16,28 @@ export function confirmPopup(message, options = {}) {
   return new Promise((resolve) => {
     root.innerHTML = renderConfirm(opts.title, message, opts);
 
+    const backdrop = root.querySelector(".dialog-backdrop");
     const btnOk = root.querySelector("#dlg-ok");
     const btnCancel = root.querySelector("#dlg-cancel");
     const focusables = [btnCancel, btnOk].filter(Boolean);
-
-    const close = (result) => {
-      cleanup();
-      resolve(result);
-    };
 
     const cleanup = () => {
       root.innerHTML = "";
       document.removeEventListener("keydown", onKey);
       previouslyFocused?.focus?.();
     };
+
+    const close = (result) => {
+      cleanup();
+      resolve(result);
+    };
+
+    // клик по фону НЕ закрывает (по твоему требованию)
+    if (opts.closeOnBackdrop) {
+      backdrop?.addEventListener("click", (e) => {
+        if (e.target === backdrop) close(false);
+      });
+    }
 
     btnOk?.addEventListener("click", () => close(true));
     btnCancel?.addEventListener("click", () => close(false));
@@ -52,7 +58,7 @@ export function confirmPopup(message, options = {}) {
 
     document.addEventListener("keydown", onKey);
 
-    // safer default: focus Cancel first
+    // безопаснее фокус на Cancel
     btnCancel?.focus();
   });
 }
@@ -68,15 +74,15 @@ export function alertPopup(message, options = {}) {
     const btnOk = root.querySelector("#dlg-ok");
     const focusables = [btnOk].filter(Boolean);
 
-    const close = () => {
-      cleanup();
-      resolve();
-    };
-
     const cleanup = () => {
       root.innerHTML = "";
       document.removeEventListener("keydown", onKey);
       previouslyFocused?.focus?.();
+    };
+
+    const close = () => {
+      cleanup();
+      resolve();
     };
 
     btnOk?.addEventListener("click", close);
@@ -97,6 +103,7 @@ export function alertPopup(message, options = {}) {
 }
 
 /* ---------- render helpers ---------- */
+
 function renderConfirm(title, message, opts) {
   return `
     <div class="dialog-backdrop">

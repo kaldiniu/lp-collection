@@ -1,5 +1,4 @@
 // src/ui/loginPopup.js
-import { alertPopup } from "./dialogs.js";
 import { loginWithPassword } from "../services/auth.js";
 
 export function loginPopup() {
@@ -12,6 +11,7 @@ export function loginPopup() {
     const input = root.querySelector("#login-password");
     const btnOk = root.querySelector("#login-ok");
     const btnCancel = root.querySelector("#login-cancel");
+    const errorBox = root.querySelector("#login-error");
 
     const cleanup = () => {
       root.innerHTML = "";
@@ -32,11 +32,10 @@ export function loginPopup() {
       const ok = loginWithPassword(pwd);
 
       if (!ok) {
-        await alertPopup("Wrong password", {
-          title: "Login failed",
-          confirmText: "OK",
-          danger: true,
-        });
+        // показываем ошибку внутри формы
+        errorBox.textContent = "Wrong password";
+        errorBox.hidden = false;
+
         input.focus();
         input.select();
         return;
@@ -56,6 +55,7 @@ export function loginPopup() {
     }
 
     document.addEventListener("keydown", onKey);
+
     input.focus();
   });
 }
@@ -76,6 +76,8 @@ function render() {
               autocomplete="current-password"
             />
           </label>
+
+          <div id="login-error" class="dialog__error" hidden aria-live="polite"></div>
         </div>
 
         <div class="dialog__actions">
@@ -96,3 +98,4 @@ function ensureDialogRoot() {
   document.body.appendChild(root);
   return root;
 }
+``

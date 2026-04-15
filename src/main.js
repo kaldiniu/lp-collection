@@ -4,7 +4,6 @@ import { startRouter, rerender } from "./router.js";
 import { getPrefs, setTheme, setView, applyTheme } from "./prefs.js";
 import { isAuthed, logout } from "./services/auth.js";
 import { loginPopup } from "./ui/loginPopup.js";
-``
 
 function initUI() {
   const btnTheme = document.querySelector("#btn-theme");

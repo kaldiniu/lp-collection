@@ -2,6 +2,7 @@
 //
 import { loadBaseData } from "./data.js";
 import { isAuthed } from "./services/auth.js";
+import { normalizeRelease } from "./normalize.js";
 
 const LS_KEY = "lp_data_overlay_v1";
 
@@ -115,7 +116,7 @@ export function importData(payload, { mode = "merge" } = {}) {
   for (const it of incoming) {
     if (!it || !it.id) continue;
 
-    overlay.itemsById[it.id] = it;     // overwrite целиком
+    overlay.itemsById[it.id] = normalizeRelease(it);    // overwrite целиком
     delete overlay.deleted[it.id];     // если было удалено — вернуть
   }
 
