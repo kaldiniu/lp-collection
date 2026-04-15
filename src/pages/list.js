@@ -16,10 +16,11 @@ import { openModal } from "../ui/modal.js";
 import { resolveImage, initLazyImages, getPlaceholder } from "../ui/images.js";
 
 import { isAuthed } from "../services/auth.js";
-import { initStore, getAll, addRelease, updateRelease, deleteRelease, exportData, importData } from "../store.js";
+import { initStore, getAll, addRelease, updateRelease, deleteRelease, exportData, importData, resetOverlay } from "../store.js";
 import { renderAddReleaseForm, readAddReleaseForm } from "../ui/addReleaseForm.js";
 import { renderEditReleaseForm, readEditReleaseForm } from "../ui/editReleaseForm.js";
 import { downloadJson, pickJsonFile } from "../ui/backup.js";
+import { confirmPopup, alertPopup } from "../ui/dialogs.js";
 
 // -------------------- cache --------------------
 let cache = {
@@ -203,6 +204,9 @@ function renderToolbar(state, formats) {
         <button class="btn" id="btn-export" type="button">Export</button>
         <button class="btn" id="btn-import" type="button">Import</button>
       ` : ""}
+
+      ${isAuthed() ? `<button class="btn btn--danger" id="btn-reset-overlay" type="button">Reset local</button>` : ""}
+
     </div>
   `;
 }
@@ -226,6 +230,32 @@ function bindToolbar(type) {
 
   const btnExport = root.querySelector("#btn-export");
   const btnImport = root.querySelector("#btn-import");
+  const btnResetOverlay = root.querySelector("#btn-reset-overlay");
+
+  btnResetOverlay?.addEventListener("click", async () => {
+    if (!isAuthed()) return;
+
+    const ok = await confirmPopup(
+      [
+        "This will DELETE ALL local changes stored in your browser.",
+        "Data will revert to base.json.",
+        "Continue?"
+      ],
+      { title: "Reset local changes", confirmText: "Reset", cancelText: "Cancel", danger: true }
+    );
+    if (!ok) return;
+
+    try {
+      resetOverlay();
+      cache.all = getAll();
+      updateFormatsCache();
+      updateContent(type);
+
+      await alertPopup("Local changes reset complete.", { title: "Reset local", confirmText: "OK" });
+    } catch (err) {
+      await alertPopup(err.message, { title: "Reset local", confirmText: "OK", danger: true });
+    }
+  });
 
   btnExport?.addEventListener("click", () => {
     if (!isAuthed()) return;
@@ -237,27 +267,27 @@ function bindToolbar(type) {
   btnImport?.addEventListener("click", async () => {
     if (!isAuthed()) return;
 
-    const ok = confirm(
-      "Import will MERGE and OVERWRITE existing releases with the same ID.\n" +
-      "Deleted releases may also be restored if present in the file.\n\n" +
-      "Continue?"
+    const ok = await confirmPopup(
+      [
+        "Import will MERGE and OVERWRITE existing releases with the same ID.",
+        "Deleted releases may also be restored if present in the file.",
+        "Continue?"
+      ],
+      { title: "Import JSON", confirmText: "Import", cancelText: "Cancel", danger: true }
     );
     if (!ok) return;
 
     try {
       const json = await pickJsonFile();
-
-      // merge overwrite
       importData(json, { mode: "merge" });
 
-      // refresh in-memory data and UI
       cache.all = getAll();
       updateFormatsCache();
       updateContent(type);
 
-      alert("Import complete (merge overwrite).");
+      await alertPopup("Import complete (merge overwrite).", { title: "Import", confirmText: "OK" });
     } catch (err) {
-      alert(`Import failed: ${err.message}`);
+      await alertPopup(`Import failed: ${err.message}`, { title: "Import", confirmText: "OK", danger: true });
     }
   });
 
@@ -664,9 +694,17 @@ function bindReleaseAdmin(currentType, id) {
     );
   });
 
-  btnDelete?.addEventListener("click", () => {
+  btnDelete?.addEventListener("click", async () => {
     if (!isAuthed()) return;
-    if (!confirm("Delete this release?")) return;
+
+    const item = cache.all.find(x => x.id === id);
+    const title = item?.title ? `“${item.title}”` : "this release";
+
+    const ok = await confirmPopup(
+      [`Delete ${title}?`, "This cannot be undone.", "Continue?"],
+      { title: "Delete release", confirmText: "Delete", cancelText: "Cancel", danger: true }
+    );
+    if (!ok) return;
 
     deleteRelease(id);
 
@@ -674,6 +712,7 @@ function bindReleaseAdmin(currentType, id) {
     updateFormatsCache();
     updateContent(currentType);
 
+    // закрыть модалку
     closeModalFallback();
   });
 }

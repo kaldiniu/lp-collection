@@ -16,27 +16,27 @@ export function renderAddReleaseForm(currentType) {
 
         <label class="field">
           <span class="field__label">Year</span>
-          <input class="input" name="year" type="number" min="1900" max="2100" />
+          <input class="input" name="year" type="number" min="1990" max="2100" />
         </label>
 
         <label class="field">
           <span class="field__label">Format *</span>
-          <input class="input" name="format" required placeholder="CD / Vinyl / DVD ..." />
+          <input class="input" name="format" required placeholder="CD / Vinyl / DVD / Cassette ..." />
         </label>
 
         <label class="field">
           <span class="field__label">Packaging</span>
-          <input class="input" name="packaging" placeholder="J-Card Case (7mm) / Digipak / ..." />
+          <input class="input" name="packaging" placeholder="J-Card Case (7mm) / Digipak / Jewel ..." />
         </label>
 
         <label class="field">
           <span class="field__label">Era</span>
-          <input class="input" name="era" placeholder="Hybrid Theory / Meteora ..." />
+          <input class="input" name="era" placeholder="Hybrid Theory / Reanimation / Meteora ..." />
         </label>
 
         <label class="field">
           <span class="field__label">Country</span>
-          <input class="input" name="country" placeholder="Germany / AU / ..." />
+          <input class="input" name="country" placeholder="Germany / AU / US / UK ..." />
         </label>
 
         <label class="field">

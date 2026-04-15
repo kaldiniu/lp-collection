@@ -121,3 +121,13 @@ export function importData(payload, { mode = "merge" } = {}) {
 
   saveOverlay();
 }
+
+export function resetOverlay() {
+  if (!isAuthed()) throw new Error("Not authorized");
+
+  // очистка overlay в памяти
+  overlay = { itemsById: {}, deleted: {} };
+
+  // очистка overlay в localStorage
+  localStorage.removeItem(LS_KEY);
+}
